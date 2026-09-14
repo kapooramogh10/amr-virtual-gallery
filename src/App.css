@@ -1,0 +1,988 @@
+@import url("https://fonts.googleapis.com/css2?family=Hibur+Mono&display=swap");
+
+:root {
+  --museum-blue: #c7dce8;
+  --museum-wall: #d9e8ef;
+  --museum-light: #f6fbfd;
+  --museum-white: #ffffff;
+  --museum-floor: #9fb5c0;
+  --museum-charcoal: #27333c;
+  --museum-slate: #4a5d69;
+  --museum-muted: #657b87;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: var(--museum-wall);
+  color: var(--museum-charcoal);
+  font-family:
+    Inter,
+    Arial,
+    Helvetica,
+    sans-serif;
+}
+
+button {
+  font: inherit;
+}
+
+.app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--museum-wall);
+}
+
+.loading-title,
+.loading-kicker,
+.loading-status,
+.loading-enter-button,
+.title-screen-button,
+.gallery-label,
+.gallery-title h1,
+.page-indicator,
+.gallery-footer,
+.learn-more-button,
+.info-eyebrow,
+.artwork-info h2,
+.amr-note-label,
+.intro-kicker,
+.intro-title,
+.intro-continue-button {
+  font-family:
+    "Hibur Mono",
+    "Courier New",
+    monospace;
+}
+
+/* ==================================================
+   TITLE SCREEN
+   ================================================== */
+
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--museum-blue);
+  color: var(--museum-charcoal);
+}
+
+.loading-screen::before,
+.loading-screen::after {
+  display: none;
+}
+
+.loading-content {
+  position: relative;
+  z-index: 1;
+  width: min(900px, calc(100vw - 40px));
+  padding: 48px 38px;
+  text-align: center;
+}
+
+.loading-kicker {
+  margin: 0 0 20px;
+  color: var(--museum-white);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+
+.loading-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  color: var(--museum-charcoal);
+  font-size: clamp(3.2rem, 6.8vw, 6.5rem);
+  font-weight: 400;
+  letter-spacing: -0.065em;
+  line-height: 0.94;
+  text-shadow: none;
+}
+
+.loading-title span {
+  display: block;
+  white-space: nowrap;
+}
+
+.loading-description {
+  max-width: 500px;
+  margin: 27px auto 0;
+  color: var(--museum-slate);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.loading-progress {
+  width: min(330px, 78%);
+  height: 2px;
+  margin: 40px auto 0;
+  overflow: hidden;
+  background: rgba(39, 51, 60, 0.14);
+}
+
+.loading-progress-fill {
+  width: 0;
+  height: 100%;
+  background: var(--museum-white);
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.7);
+}
+
+.loading-action-area {
+  display: grid;
+  place-items: center;
+  min-height: 72px;
+  margin-top: 20px;
+}
+
+.loading-status {
+  margin: 0;
+  color: #526673;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.loading-enter-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  padding: 15px 25px;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--museum-charcoal);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 12px 28px rgba(54, 76, 89, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.loading-enter-button span {
+  font-size: 1.15rem;
+  transition: transform 0.25s ease;
+}
+
+.loading-enter-button:hover {
+  border-color: var(--museum-white);
+  background: var(--museum-white);
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 34px rgba(54, 76, 89, 0.17),
+    inset 0 1px 0 var(--museum-white);
+}
+
+.loading-enter-button:hover span {
+  transform: translateX(4px);
+}
+
+.loading-enter-button:focus-visible {
+  outline: 3px solid rgba(39, 51, 60, 0.42);
+  outline-offset: 5px;
+}
+
+.loading-error {
+  margin: 0 0 14px;
+  color: #853f46;
+  font-size: 0.76rem;
+}
+
+.loading-credit {
+  margin: 31px 0 0;
+  color: #526875;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* ==================================================
+   INTRO SLIDE
+   ================================================== */
+
+.intro-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  background: var(--museum-blue);
+  color: var(--museum-charcoal);
+}
+
+.intro-content {
+  width: min(680px, calc(100vw - 48px));
+  margin: auto;
+  padding: 64px 42px;
+  text-align: center;
+}
+
+.intro-kicker {
+  margin: 0 0 18px;
+  color: var(--museum-white);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+
+.intro-title {
+  margin: 0 0 30px;
+  color: var(--museum-charcoal);
+  font-size: clamp(2rem, 4.4vw, 3.2rem);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.intro-text {
+  text-align: left;
+}
+
+.intro-text p {
+  margin: 0 0 22px;
+  color: var(--museum-slate);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.75;
+}
+
+.intro-text p:last-child {
+  margin-bottom: 0;
+}
+
+.intro-continue-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 36px;
+  padding: 15px 25px;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--museum-charcoal);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 12px 28px rgba(54, 76, 89, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.intro-continue-button span {
+  font-size: 1.15rem;
+  transition: transform 0.25s ease;
+}
+
+.intro-continue-button:hover {
+  border-color: var(--museum-white);
+  background: var(--museum-white);
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 34px rgba(54, 76, 89, 0.17),
+    inset 0 1px 0 var(--museum-white);
+}
+
+.intro-continue-button:hover span {
+  transform: translateX(4px);
+}
+
+.intro-continue-button:focus-visible {
+  outline: 3px solid rgba(39, 51, 60, 0.42);
+  outline-offset: 5px;
+}
+
+/* ==================================================
+   RETURN TO TITLE SCREEN
+   ================================================== */
+
+.title-screen-button {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 7;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--museum-charcoal);
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 10px 25px rgba(54, 76, 89, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.title-screen-button span {
+  font-size: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.title-screen-button:hover {
+  border-color: var(--museum-white);
+  background: var(--museum-white);
+  transform: translateY(-2px);
+  box-shadow:
+    0 14px 30px rgba(54, 76, 89, 0.18),
+    inset 0 1px 0 var(--museum-white);
+}
+
+.title-screen-button:hover span {
+  transform: translateX(-3px);
+}
+
+.title-screen-button:focus-visible {
+  outline: 3px solid rgba(39, 51, 60, 0.38);
+  outline-offset: 4px;
+}
+
+/* ==================================================
+   GALLERY HEADING
+   ================================================== */
+
+.gallery-title {
+  position: fixed;
+  top: 9px;
+  left: 50%;
+  z-index: 5;
+  width: min(760px, calc(100vw - 220px));
+  padding: 0;
+  color: var(--museum-charcoal);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -10px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.gallery-title-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.gallery-label {
+  margin: 0 0 4px;
+  color: var(--museum-muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 10px rgba(255, 255, 255, 0.72);
+}
+
+.gallery-title h1 {
+  margin: 0;
+  color: var(--museum-charcoal);
+  font-size: clamp(1.9rem, 3.5vw, 3.2rem);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1.02;
+  text-shadow: 0 2px 13px rgba(255, 255, 255, 0.75);
+}
+
+.gallery-subtitle {
+  margin: 6px 0 0;
+  color: var(--museum-slate);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-shadow: 0 1px 10px rgba(255, 255, 255, 0.75);
+}
+
+/* ==================================================
+   PAGE NAVIGATION
+   ================================================== */
+
+.page-arrow {
+  position: fixed;
+  top: 50%;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  padding: 0 0 5px;
+  border: 1px solid rgba(39, 51, 60, 0.13);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--museum-charcoal);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 2.6rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-50%) scale(0.92);
+  box-shadow:
+    0 13px 30px rgba(54, 76, 89, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    opacity 0.28s ease,
+    visibility 0.28s ease,
+    transform 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.page-arrow-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+}
+
+.page-arrow:hover:not(:disabled) {
+  background: var(--museum-white);
+  transform: translateY(-50%) scale(1.08);
+  box-shadow:
+    0 16px 34px rgba(54, 76, 89, 0.2),
+    inset 0 1px 0 var(--museum-white);
+}
+
+.page-arrow:disabled,
+.page-arrow-disabled {
+  cursor: wait;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.page-arrow-left {
+  left: 25px;
+}
+
+.page-arrow-right {
+  right: 25px;
+}
+
+/* ==================================================
+   PAGE INDICATOR AND FOOTER
+   ================================================== */
+
+.page-indicator {
+  position: fixed;
+  bottom: 47px;
+  left: 50%;
+  z-index: 5;
+  padding: 7px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--museum-charcoal);
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  opacity: 0;
+  transform: translateX(-50%);
+  box-shadow:
+    0 9px 24px rgba(54, 76, 89, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: opacity 0.28s ease;
+}
+
+.page-indicator-visible {
+  opacity: 1;
+}
+
+.gallery-footer {
+  position: fixed;
+  bottom: 13px;
+  left: 50%;
+  z-index: 5;
+  padding: 7px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--museum-slate);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+  box-shadow:
+    0 9px 24px rgba(54, 76, 89, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.gallery-footer-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ==================================================
+   ZOOMED ARTWORK CONTROLS
+   ================================================== */
+
+.viewer-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.viewer-ui-visible {
+  opacity: 1;
+}
+
+.viewer-ui-visible button,
+.viewer-ui-visible .artwork-info {
+  pointer-events: auto;
+}
+
+.close-button {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  padding: 0 0 4px;
+  border: 1px solid rgba(39, 51, 60, 0.14);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--museum-charcoal);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow:
+    0 13px 30px rgba(54, 76, 89, 0.17),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.close-button:hover {
+  background: var(--museum-white);
+  transform: scale(1.06);
+  box-shadow:
+    0 16px 34px rgba(54, 76, 89, 0.21),
+    inset 0 1px 0 var(--museum-white);
+}
+
+.close-button:focus-visible {
+  outline: 3px solid rgba(39, 51, 60, 0.4);
+  outline-offset: 4px;
+}
+
+.learn-more-button {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  z-index: 6;
+  min-width: 255px;
+  padding: 20px 44px;
+  border: 2px solid rgba(39, 51, 60, 0.56);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.97);
+  color: var(--museum-charcoal);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 20px 48px rgba(39, 51, 60, 0.3),
+    0 0 0 5px rgba(255, 255, 255, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transform: translateX(-50%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition:
+    transform 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.learn-more-button:hover {
+  border-color: var(--museum-charcoal);
+  background: var(--museum-white);
+  transform:
+    translateX(-50%)
+    translateY(-2px)
+    scale(1.05);
+  box-shadow:
+    0 24px 56px rgba(39, 51, 60, 0.35),
+    0 0 0 6px rgba(255, 255, 255, 0.48),
+    inset 0 1px 0 var(--museum-white);
+}
+
+.learn-more-button:active {
+  transform:
+    translateX(-50%)
+    translateY(0)
+    scale(0.99);
+}
+
+.learn-more-button:focus-visible {
+  outline: 4px solid rgba(39, 51, 60, 0.42);
+  outline-offset: 5px;
+}
+
+/* ==================================================
+   ARTWORK INFORMATION PANEL
+   ================================================== */
+
+.artwork-info {
+  position: absolute;
+  top: 88px;
+  right: 28px;
+  bottom: 88px;
+  left: auto;
+  z-index: 4;
+  width: min(420px, calc(100vw - 56px));
+  max-height: none;
+  margin: 0;
+  padding: 34px 30px 30px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  border-radius: 20px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(250, 253, 255, 0.98),
+      rgba(231, 242, 247, 0.97)
+    );
+  color: var(--museum-charcoal);
+  text-align: left;
+  box-shadow:
+    0 28px 75px rgba(46, 67, 79, 0.27),
+    inset 0 1px 0 var(--museum-white);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  scrollbar-color: #9fb5c0 transparent;
+  scrollbar-width: thin;
+}
+
+.artwork-info::-webkit-scrollbar {
+  width: 7px;
+}
+
+.artwork-info::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.artwork-info::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #9fb5c0;
+}
+
+.info-close-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0 0 3px;
+  border: 1px solid rgba(39, 51, 60, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--museum-charcoal);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.info-close-button:hover {
+  background: var(--museum-white);
+  transform: scale(1.06);
+}
+
+.info-eyebrow {
+  margin: 0 48px 11px 0;
+  color: var(--museum-muted);
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.artwork-info h2 {
+  margin: 0 45px 9px 0;
+  color: var(--museum-charcoal);
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+
+.artwork-info .artist {
+  margin: 0;
+  color: var(--museum-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-style: italic;
+}
+
+.info-divider {
+  width: 100%;
+  height: 1px;
+  margin: 24px 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(74, 93, 105, 0.28),
+      rgba(74, 93, 105, 0.03)
+    );
+}
+
+.info-description {
+  margin: 0;
+  color: var(--museum-slate);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.amr-note {
+  margin-top: 26px;
+  padding: 18px;
+  border: 1px solid rgba(74, 93, 105, 0.14);
+  border-radius: 14px;
+  background: rgba(199, 220, 232, 0.46);
+}
+
+.amr-note-label {
+  margin: 0 0 8px;
+  color: #536c79;
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.amr-note p:last-child {
+  margin: 0;
+  color: var(--museum-slate);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+/* ==================================================
+   TABLET AND MOBILE
+   ================================================== */
+
+@media (max-width: 700px) {
+  .loading-content {
+    width: calc(100vw - 24px);
+    padding: 30px 12px;
+  }
+
+  .loading-kicker {
+    margin-bottom: 16px;
+    font-size: 0.58rem;
+    letter-spacing: 0.27em;
+  }
+
+  .loading-title {
+    font-size: clamp(2.35rem, 12vw, 4rem);
+    letter-spacing: -0.07em;
+    line-height: 0.98;
+  }
+
+  .loading-description {
+    max-width: 330px;
+    margin-top: 22px;
+    font-size: 0.88rem;
+  }
+
+  .loading-progress {
+    margin-top: 31px;
+  }
+
+  .loading-enter-button {
+    padding: 13px 21px;
+    font-size: 0.75rem;
+  }
+
+  .loading-credit {
+    margin-top: 24px;
+  }
+
+  .intro-content {
+    padding: 44px 20px;
+  }
+
+  .intro-kicker {
+    margin-bottom: 14px;
+    font-size: 0.58rem;
+    letter-spacing: 0.27em;
+  }
+
+  .intro-title {
+    margin-bottom: 22px;
+    font-size: clamp(1.6rem, 8vw, 2.4rem);
+  }
+
+  .intro-text p {
+    margin-bottom: 18px;
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+
+  .title-screen-button {
+    top: 12px;
+    left: 12px;
+    gap: 7px;
+    padding: 9px 12px;
+    font-size: 0.61rem;
+  }
+
+  .gallery-title {
+    top: 7px;
+    width: calc(100vw - 90px);
+  }
+
+  .gallery-label {
+    margin-bottom: 3px;
+    font-size: 0.56rem;
+  }
+
+  .gallery-title h1 {
+    font-size: 1.7rem;
+  }
+
+  .gallery-subtitle {
+    margin-top: 4px;
+    font-size: 0.76rem;
+  }
+
+  .page-arrow {
+    width: 43px;
+    height: 43px;
+    font-size: 2.1rem;
+  }
+
+  .page-arrow-left {
+    left: 10px;
+  }
+
+  .page-arrow-right {
+    right: 10px;
+  }
+
+  .page-indicator {
+    bottom: 43px;
+    padding: 5px 10px;
+    font-size: 0.66rem;
+  }
+
+  .gallery-footer {
+    bottom: 10px;
+    padding: 5px 10px;
+    font-size: 0.64rem;
+  }
+
+  .close-button {
+    top: 14px;
+    right: 14px;
+    width: 46px;
+    height: 46px;
+  }
+
+  .learn-more-button {
+    bottom: 14px;
+    min-width: 210px;
+    padding: 17px 30px;
+    font-size: 0.82rem;
+  }
+
+  .artwork-info {
+    top: auto;
+    right: 12px;
+    bottom: 84px;
+    left: 12px;
+    width: auto;
+    max-height: 52vh;
+    padding: 28px 22px 22px;
+    border-radius: 18px;
+  }
+
+  .artwork-info h2 {
+    font-size: 1.6rem;
+  }
+
+  .info-description {
+    font-size: 0.94rem;
+    line-height: 1.65;
+  }
+}
