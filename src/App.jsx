@@ -2,39 +2,58 @@ import {
   Suspense,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { CameraControls, useProgress, useTexture } from '@react-three/drei'
+import { useProgress, useTexture } from '@react-three/drei'
 import { AnimatePresence, motion } from 'motion/react'
 import * as THREE from 'three'
 import './App.css'
 import paintings from './data/paintings'
 import catMeowUrl from './assets/cat-meow.mp3'
 
-const HOME_CAMERA = {
-  position: [0, 1, 8],
-  target: [0, 1, -4],
-}
-
-// Camera Z position when viewing a piece head-on (see openArtwork) and the
-// Canvas camera's vertical FOV.
-const ARTWORK_VIEW_Z = 0.9
 const CAMERA_FOV = 50
+const CAMERA_HEIGHT = 1
+const TAN_HALF_FOV = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV / 2))
 
-const ARTWORK_POSITIONS = [
-  [-3.4, 1, -3.8],
-  [0, 1, -3.8],
-  [3.4, 1, -3.8],
-]
+// Every piece hangs evenly spaced around one circular room, so the room's
+// radius grows with the number of artworks.
+const ARTWORK_COUNT = paintings.length
+const ARTWORK_SPACING = 3.4
+const ARTWORK_STEP = (Math.PI * 2) / ARTWORK_COUNT
+const ARTWORK_RADIUS = Math.max(
+  6,
+  (ARTWORK_COUNT * ARTWORK_SPACING) / (Math.PI * 2),
+)
+const WALL_RADIUS = ARTWORK_RADIUS + 0.4
+const SPOTLIGHT_RADIUS = ARTWORK_RADIUS - 2.25
+
+// Camera distance from the wall while browsing the room, and the closest a
+// zoomed-in view is allowed to get.
+const HOME_VIEW_DISTANCE = 11.8
+const ZOOMED_VIEW_DISTANCE = 5
+const MIN_ZOOM_DISTANCE = 2.2
+const ZOOM_FIT_MARGIN = 1.12
+
+// Only the spotlights nearest the view are real lights; the rest of the
+// fixtures are just meshes.
+const SPOTLIGHT_POOL_SIZE = 7
+
+// Pointer travel (px) before a press becomes a drag, and the swipe length
+// that moves to the next piece while zoomed in.
+const DRAG_THRESHOLD = 6
+const SWIPE_THRESHOLD = 50
+
+// Zoomed-in viewer layout. Keep in sync with .artwork-info and
+// .viewer-arrow in App.css.
+const MOBILE_BREAKPOINT = 760
+const INFO_PANEL_MAX_WIDTH = 420
+const INFO_PANEL_WIDTH_RATIO = 0.38
+const INFO_SHEET_HEIGHT_RATIO = 0.44
 
 const ARTWORK_TEXTURE_URLS = paintings.map((painting) => painting.image)
-
-const PAINTINGS_PER_PAGE = 3
-const PAGE_SLIDE_DISTANCE = 8.5
 
 // Envelope the image is fit inside, leaving room around it for the mat.
 const IMAGE_MAX_WIDTH = 2.26
@@ -43,7 +62,7 @@ const IMAGE_MAX_HEIGHT = 2.61
 // Uniform white-mat border added around the image on every side.
 const MAT_MARGIN = 0.22
 
-// Safety bound so three mats side by side never crowd the spotlights.
+// Safety bound so neighbouring mats never crowd each other on the wall.
 const MAT_MAX_WIDTH = 2.7
 const MAT_MAX_HEIGHT = 3.05
 
@@ -148,169 +167,125 @@ function LoadingScreen({ assetsReady, entered, onEnter }) {
               ease: [0.22, 1, 0.36, 1],
             }}
           >
-            <p className="loading-kicker">Digital Exhibition</p>
+            <div className="loading-hero">
+              <p className="loading-kicker">Digital Exhibition</p>
 
-            <h1 className="loading-title">
-              <span>AMR Virtual</span>
-              <span>Gallery</span>
-            </h1>
+              <h1 className="loading-title">
+                <span>AMR Virtual</span>
+                <span>Gallery</span>
+              </h1>
 
-            <p className="loading-description">
-              Exploring antimicrobial resistance through art
-            </p>
-
-            <div className="loading-progress" aria-hidden="true">
-              <motion.div
-                className="loading-progress-fill"
-                animate={{
-                  width: `${displayedProgress}%`,
-                }}
-                transition={{
-                  duration: 0.35,
-                  ease: 'easeOut',
-                }}
-              />
-            </div>
-
-            <div className="loading-action-area" aria-live="polite">
-              <AnimatePresence mode="wait">
-                {readyToEnter ? (
-                  <motion.button
-                    key="enter-gallery"
-                    type="button"
-                    className="loading-enter-button"
-                    onClick={onEnter}
-                    initial={{
-                      opacity: 0,
-                      y: 10,
-                      scale: 0.96,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                      scale: 1,
-                    }}
-                    exit={{
-                      opacity: 0,
-                    }}
-                    transition={{
-                      duration: 0.4,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                  >
-                    Enter Gallery
-                    <span aria-hidden="true">→</span>
-                  </motion.button>
-                ) : (
-                  <motion.p
-                    key="loading-status"
-                    className="loading-status"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    Preparing exhibition {displayedProgress}%
-                  </motion.p>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {errors.length > 0 && (
-              <p className="loading-error">
-                One or more artwork files could not be loaded.
+              <p className="loading-description">
+                Exploring antimicrobial resistance through art
               </p>
-            )}
+            </div>
+
+            <div className="loading-statement">
+              <p className="intro-kicker">Curatorial Statement</p>
+
+              <h2 className="intro-title">
+                Art in the Age of Resistance
+              </h2>
+
+              <div className="intro-text">
+                <p>
+                  Antibiotics have been widely used in medicine to
+                  treat common infections; however, ability to use
+                  antibiotics is now decreasing due to antimicrobial
+                  resistance. Bacteria evolve faster than we can
+                  develop new drugs and infections once considered
+                  routine are becoming harder to treat. We use art to
+                  close the gap in public understanding of
+                  antimicrobial resistance. This exhibition brings
+                  together artists from Columbia College of Art in
+                  Chicago who translate this invisible crisis into
+                  something we can see, feel, and sit with. These
+                  artists collaborated with clinicians from
+                  Midwestern University School of Pharmacy as well as
+                  Northwestern Medicine to depict this important
+                  public health concern. Our goal isn't just
+                  appreciation but also understanding of this
+                  understated crisis.
+                </p>
+
+                <p>
+                  We invite you to explore the works that follow.
+                  Some may be unsettling. Some may be surprising. We
+                  hope they resonate with you as deeply as they did
+                  with us and encourage you to consider both the
+                  power and the fragility of the medicines we so
+                  often take for granted.
+                </p>
+              </div>
+            </div>
+
+            <div className="loading-actions">
+              <div className="loading-progress" aria-hidden="true">
+                <motion.div
+                  className="loading-progress-fill"
+                  animate={{
+                    width: `${displayedProgress}%`,
+                  }}
+                  transition={{
+                    duration: 0.35,
+                    ease: 'easeOut',
+                  }}
+                />
+              </div>
+
+              <div className="loading-action-area" aria-live="polite">
+                <AnimatePresence mode="wait">
+                  {readyToEnter ? (
+                    <motion.button
+                      key="enter-gallery"
+                      type="button"
+                      className="loading-enter-button"
+                      onClick={onEnter}
+                      initial={{
+                        opacity: 0,
+                        y: 10,
+                        scale: 0.96,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                        scale: 1,
+                      }}
+                      exit={{
+                        opacity: 0,
+                      }}
+                      transition={{
+                        duration: 0.4,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                    >
+                      Enter Gallery
+                      <span aria-hidden="true">→</span>
+                    </motion.button>
+                  ) : (
+                    <motion.p
+                      key="loading-status"
+                      className="loading-status"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      Preparing exhibition {displayedProgress}%
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {errors.length > 0 && (
+                <p className="loading-error">
+                  One or more artwork files could not be loaded.
+                </p>
+              )}
+            </div>
 
             <p className="loading-credit">
               Built by Amogh Kapoor — 2026
             </p>
-          </motion.div>
-        </motion.section>
-      )}
-    </AnimatePresence>
-  )
-}
-
-function IntroScreen({ visible, onContinue }) {
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.section
-          className="intro-screen"
-          aria-label="Exhibition introduction"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{
-            opacity: 0,
-            scale: 1.025,
-            filter: 'blur(8px)',
-          }}
-          transition={{
-            duration: 0.6,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-        >
-          <motion.div
-            className="intro-content"
-            initial={{
-              opacity: 0,
-              y: 20,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              duration: 0.7,
-              ease: [0.22, 1, 0.36, 1],
-              delay: 0.1,
-            }}
-          >
-            <p className="intro-kicker">Curatorial Statement</p>
-
-            <h1 className="intro-title">
-              Art in the Age of Resistance
-            </h1>
-
-            <div className="intro-text">
-              <p>
-                Antibiotics have been widely used in medicine to
-                treat common infections; however, ability to use
-                antibiotics is now decreasing due to antimicrobial
-                resistance. Bacteria evolve faster than we can
-                develop new drugs and infections once considered
-                routine are becoming harder to treat. We use art to
-                close the gap in public understanding of
-                antimicrobial resistance. This exhibition brings
-                together artists from Columbia College of Art in
-                Chicago who translate this invisible crisis into
-                something we can see, feel, and sit with. These
-                artists collaborated with clinicians from
-                Midwestern University School of Pharmacy as well as
-                Northwestern Medicine to depict this important
-                public health concern. Our goal isn't just
-                appreciation but also understanding of this
-                understated crisis.
-              </p>
-
-              <p>
-                We invite you to explore the works that follow.
-                Some may be unsettling. Some may be surprising. We
-                hope they resonate with you as deeply as they did
-                with us and encourage you to consider both the
-                power and the fragility of the medicines we so
-                often take for granted.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              className="intro-continue-button"
-              onClick={onContinue}
-            >
-              Enter Exhibition
-              <span aria-hidden="true">→</span>
-            </button>
           </motion.div>
         </motion.section>
       )}
@@ -328,95 +303,239 @@ function TexturePreloader({ onReady }) {
   return null
 }
 
-function getArtworksForPage(pageNumber) {
-  const firstArtworkIndex = pageNumber * PAINTINGS_PER_PAGE
-
-  return paintings
-    .slice(firstArtworkIndex, firstArtworkIndex + PAINTINGS_PER_PAGE)
-    .map((artwork, index) => ({
-      ...artwork,
-      position: ARTWORK_POSITIONS[index],
-    }))
+function wrapIndex(index) {
+  return ((index % ARTWORK_COUNT) + ARTWORK_COUNT) % ARTWORK_COUNT
 }
 
-function setGroupOpacity(group, opacity) {
-  if (!group) {
-    return
+// Positions a point on a circle around the room's center. Angle 0 faces
+// straight down -Z and angles increase clockwise when seen from above, so
+// higher indices sit further to the right.
+function setRoomPosition(vector, angle, radius, y) {
+  return vector.set(
+    radius * Math.sin(angle),
+    y,
+    -radius * Math.cos(angle),
+  )
+}
+
+function getArtworkLayout(texture) {
+  const source = texture.image
+
+  const imageWidth =
+    source?.naturalWidth ||
+    source?.videoWidth ||
+    source?.width ||
+    1
+
+  const imageHeight =
+    source?.naturalHeight ||
+    source?.videoHeight ||
+    source?.height ||
+    1
+
+  const imageAspect = imageWidth / imageHeight
+
+  let width = IMAGE_MAX_WIDTH
+  let height = width / imageAspect
+
+  if (height > IMAGE_MAX_HEIGHT) {
+    height = IMAGE_MAX_HEIGHT
+    width = height * imageAspect
   }
 
-  group.traverse((child) => {
-    if (!child.isMesh || !child.material) {
-      return
-    }
+  const matWidth = Math.min(width + MAT_MARGIN * 2, MAT_MAX_WIDTH)
+  const matHeight = Math.min(height + MAT_MARGIN * 2, MAT_MAX_HEIGHT)
 
-    const materials = Array.isArray(child.material)
-      ? child.material
-      : [child.material]
-
-    materials.forEach((material) => {
-      if (material.userData.originalDepthWrite === undefined) {
-        material.userData.originalDepthWrite = material.depthWrite
-      }
-
-      material.transparent = true
-      material.opacity = opacity
-      material.depthWrite =
-        material.userData.originalDepthWrite && opacity > 0.98
-      material.needsUpdate = true
-    })
-  })
+  return {
+    width,
+    height,
+    matWidth,
+    matHeight,
+    frameWidth: matWidth + FRAME_BORDER * 2,
+    frameHeight: matHeight + FRAME_BORDER * 2,
+  }
 }
 
-function MuseumSpotlight({ x }) {
-  const lightRef = useRef(null)
-  const targetRef = useRef(null)
+// Screen area left for the artwork once the info panel and controls are
+// placed, plus how far (px) to shift the view so the piece is centered in it.
+function getViewerFrame(width, height, infoVisible) {
+  const mobile = width <= MOBILE_BREAKPOINT
+  const gutter = mobile ? 12 : 24
+  const top = mobile ? 64 : gutter
+  const sidePadding = mobile ? 24 : 84
 
-  useEffect(() => {
-    if (lightRef.current && targetRef.current) {
-      lightRef.current.target = targetRef.current
+  let right = 0
+  let bottom = mobile ? 64 : gutter
+
+  if (infoVisible && mobile) {
+    bottom = height * INFO_SHEET_HEIGHT_RATIO + gutter
+  }
+
+  if (infoVisible && !mobile) {
+    right =
+      Math.min(INFO_PANEL_MAX_WIDTH, width * INFO_PANEL_WIDTH_RATIO) +
+      gutter * 2
+  }
+
+  return {
+    offsetX: right / 2,
+    offsetY: (bottom - top) / 2,
+    availableWidth: Math.max(1, width - right - sidePadding * 2),
+    availableHeight: Math.max(1, height - top - bottom),
+  }
+}
+
+function CameraRig({ yawTargetRef, focusIndex, zoomed, infoVisible }) {
+  const textures = useTexture(ARTWORK_TEXTURE_URLS)
+
+  const frameSizes = useMemo(
+    () => textures.map(getArtworkLayout),
+    [textures],
+  )
+
+  const yawRef = useRef(0)
+  const distanceRef = useRef(HOME_VIEW_DISTANCE)
+  const offsetRef = useRef({ x: 0, y: 0 })
+  const lookTarget = useMemo(() => new THREE.Vector3(), [])
+
+  useFrame(({ camera, size }, delta) => {
+    const frame = getViewerFrame(size.width, size.height, infoVisible)
+
+    let targetDistance = HOME_VIEW_DISTANCE
+
+    if (zoomed) {
+      const layout = frameSizes[wrapIndex(focusIndex)]
+
+      const fitDistance =
+        ((size.height * ZOOM_FIT_MARGIN) / (2 * TAN_HALF_FOV)) *
+        Math.max(
+          layout.frameWidth / frame.availableWidth,
+          layout.frameHeight / frame.availableHeight,
+        )
+
+      targetDistance = Math.max(MIN_ZOOM_DISTANCE, fitDistance)
     }
-  }, [])
 
+    const damp = THREE.MathUtils.damp
+    const offset = offsetRef.current
+
+    yawRef.current = damp(yawRef.current, yawTargetRef.current, 6, delta)
+    distanceRef.current = damp(distanceRef.current, targetDistance, 4, delta)
+    offset.x = damp(offset.x, zoomed ? frame.offsetX : 0, 4, delta)
+    offset.y = damp(offset.y, zoomed ? frame.offsetY : 0, 4, delta)
+
+    const yaw = yawRef.current
+
+    setRoomPosition(
+      camera.position,
+      yaw,
+      ARTWORK_RADIUS - distanceRef.current,
+      CAMERA_HEIGHT,
+    )
+
+    camera.lookAt(
+      setRoomPosition(lookTarget, yaw, ARTWORK_RADIUS, CAMERA_HEIGHT),
+    )
+
+    // Shifting the projection (rather than the camera) keeps the piece seen
+    // head-on while centering it in the space beside the info panel.
+    if (Math.abs(offset.x) > 0.5 || Math.abs(offset.y) > 0.5) {
+      camera.setViewOffset(
+        size.width,
+        size.height,
+        offset.x,
+        offset.y,
+        size.width,
+        size.height,
+      )
+    } else if (camera.view?.enabled) {
+      camera.clearViewOffset()
+    }
+  })
+
+  return null
+}
+
+function SpotlightPool() {
+  const lightRefs = useRef([])
+
+  const targets = useMemo(
+    () =>
+      Array.from(
+        { length: SPOTLIGHT_POOL_SIZE },
+        () => new THREE.Object3D(),
+      ),
+    [],
+  )
+
+  const viewDirection = useMemo(() => new THREE.Vector3(), [])
+
+  // Keep the real lights on the pieces around wherever the camera is facing.
+  useFrame(({ camera }) => {
+    camera.getWorldDirection(viewDirection)
+
+    const centerIndex = Math.round(
+      Math.atan2(viewDirection.x, -viewDirection.z) / ARTWORK_STEP,
+    )
+
+    lightRefs.current.forEach((light, slot) => {
+      if (!light) {
+        return
+      }
+
+      const angle =
+        (centerIndex + slot - Math.floor(SPOTLIGHT_POOL_SIZE / 2)) *
+        ARTWORK_STEP
+
+      setRoomPosition(light.position, angle, SPOTLIGHT_RADIUS, 3.85)
+      setRoomPosition(targets[slot].position, angle, ARTWORK_RADIUS, 0.9)
+      targets[slot].updateMatrixWorld()
+    })
+  })
+
+  return targets.map((target, slot) => (
+    <spotLight
+      key={`spotlight-${slot}`}
+      ref={(node) => {
+        lightRefs.current[slot] = node
+      }}
+      target={target}
+      color="#f8fcff"
+      intensity={21}
+      distance={9}
+      angle={0.36}
+      penumbra={0.9}
+      decay={2}
+    />
+  ))
+}
+
+function SpotlightFixture() {
   return (
-    <>
-      <object3D ref={targetRef} position={[x, 0.9, -3.8]} />
+    <group
+      position={[0, 3.88, -(ARTWORK_RADIUS - 2.22)]}
+      rotation={[Math.PI / 2, 0, 0]}
+    >
+      <mesh>
+        <cylinderGeometry args={[0.13, 0.17, 0.38, 32]} />
 
-      <spotLight
-        ref={lightRef}
-        position={[x, 3.85, -1.55]}
-        color="#f8fcff"
-        intensity={21}
-        distance={9}
-        angle={0.36}
-        penumbra={0.9}
-        decay={2}
-      />
+        <meshStandardMaterial
+          color="#27333c"
+          roughness={0.58}
+          metalness={0.24}
+        />
+      </mesh>
 
-      <group
-        position={[x, 3.88, -1.58]}
-        rotation={[Math.PI / 2, 0, 0]}
-      >
-        <mesh>
-          <cylinderGeometry args={[0.13, 0.17, 0.38, 32]} />
+      <mesh position={[0, -0.21, 0]}>
+        <cylinderGeometry args={[0.18, 0.18, 0.045, 32]} />
 
-          <meshStandardMaterial
-            color="#27333c"
-            roughness={0.58}
-            metalness={0.24}
-          />
-        </mesh>
-
-        <mesh position={[0, -0.21, 0]}>
-          <cylinderGeometry args={[0.18, 0.18, 0.045, 32]} />
-
-          <meshStandardMaterial
-            color="#dcebf2"
-            roughness={0.48}
-            metalness={0.26}
-          />
-        </mesh>
-      </group>
-    </>
+        <meshStandardMaterial
+          color="#dcebf2"
+          roughness={0.48}
+          metalness={0.26}
+        />
+      </mesh>
+    </group>
   )
 }
 
@@ -522,54 +641,18 @@ function ArtworkImage({ url, dimensions, matWidth, matHeight }) {
   )
 }
 
-function Artwork({ artwork, onSelect, disabled }) {
+function Artwork({ artwork, position, onSelect, disabled }) {
   const groupRef = useRef(null)
   const [hovered, setHovered] = useState(false)
   const texture = useTexture(artwork.image)
 
-  const dimensions = useMemo(() => {
-    const source = texture.image
-
-    const imageWidth =
-      source?.naturalWidth ||
-      source?.videoWidth ||
-      source?.width ||
-      1
-
-    const imageHeight =
-      source?.naturalHeight ||
-      source?.videoHeight ||
-      source?.height ||
-      1
-
-    const imageAspect = imageWidth / imageHeight
-
-    let width = IMAGE_MAX_WIDTH
-    let height = width / imageAspect
-
-    if (height > IMAGE_MAX_HEIGHT) {
-      height = IMAGE_MAX_HEIGHT
-      width = height * imageAspect
-    }
-
-    return {
-      width,
-      height,
-    }
-  }, [texture])
-
-  const matWidth = Math.min(
-    dimensions.width + MAT_MARGIN * 2,
-    MAT_MAX_WIDTH,
-  )
-
-  const matHeight = Math.min(
-    dimensions.height + MAT_MARGIN * 2,
-    MAT_MAX_HEIGHT,
-  )
-
-  const frameWidth = matWidth + FRAME_BORDER * 2
-  const frameHeight = matHeight + FRAME_BORDER * 2
+  const {
+    matWidth,
+    matHeight,
+    frameWidth,
+    frameHeight,
+    ...dimensions
+  } = useMemo(() => getArtworkLayout(texture), [texture])
 
   const [prevDisabled, setPrevDisabled] = useState(disabled)
 
@@ -625,7 +708,7 @@ function Artwork({ artwork, onSelect, disabled }) {
   function handleClick(event) {
     event.stopPropagation()
 
-    if (disabled) {
+    if (disabled || event.delta > DRAG_THRESHOLD) {
       return
     }
 
@@ -637,7 +720,7 @@ function Artwork({ artwork, onSelect, disabled }) {
   return (
     <group
       ref={groupRef}
-      position={artwork.position}
+      position={position}
       onClick={handleClick}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
@@ -660,95 +743,6 @@ function Artwork({ artwork, onSelect, disabled }) {
         matWidth={matWidth}
         matHeight={matHeight}
       />
-    </group>
-  )
-}
-
-function ArtworkPage({
-  artworks,
-  mode,
-  direction,
-  disabled,
-  onTransitionComplete,
-  onSelect,
-}) {
-  const groupRef = useRef(null)
-  const opacityRef = useRef(mode === 'enter' ? 0 : 1)
-  const elapsedRef = useRef(0)
-  const completionSentRef = useRef(false)
-
-  useLayoutEffect(() => {
-    if (!groupRef.current) {
-      return
-    }
-
-    const startingX =
-      mode === 'enter'
-        ? direction * PAGE_SLIDE_DISTANCE
-        : 0
-
-    groupRef.current.position.x = startingX
-    opacityRef.current = mode === 'enter' ? 0 : 1
-    elapsedRef.current = 0
-    completionSentRef.current = false
-
-    setGroupOpacity(groupRef.current, opacityRef.current)
-  }, [mode, direction])
-
-  useFrame((_, delta) => {
-    const group = groupRef.current
-
-    if (!group || mode === 'static') {
-      return
-    }
-
-    const targetX =
-      mode === 'exit'
-        ? -direction * PAGE_SLIDE_DISTANCE
-        : 0
-
-    const targetOpacity = mode === 'exit' ? 0 : 1
-    const smoothing = 1 - Math.exp(-9 * delta)
-
-    group.position.x = THREE.MathUtils.lerp(
-      group.position.x,
-      targetX,
-      smoothing,
-    )
-
-    opacityRef.current = THREE.MathUtils.lerp(
-      opacityRef.current,
-      targetOpacity,
-      smoothing,
-    )
-
-    setGroupOpacity(group, opacityRef.current)
-    elapsedRef.current += delta
-
-    if (
-      mode === 'enter' &&
-      !completionSentRef.current &&
-      elapsedRef.current >= 0.55
-    ) {
-      completionSentRef.current = true
-      group.position.x = 0
-      opacityRef.current = 1
-
-      setGroupOpacity(group, 1)
-      onTransitionComplete?.()
-    }
-  })
-
-  return (
-    <group ref={groupRef}>
-      {artworks.map((artwork) => (
-        <Artwork
-          key={artwork.id}
-          artwork={artwork}
-          onSelect={onSelect}
-          disabled={disabled}
-        />
-      ))}
     </group>
   )
 }
@@ -872,7 +866,7 @@ function InteractivePlant({ disabled }) {
   function handleClick(event) {
     event.stopPropagation()
 
-    if (disabled) {
+    if (disabled || event.delta > DRAG_THRESHOLD) {
       return
     }
 
@@ -882,7 +876,7 @@ function InteractivePlant({ disabled }) {
   return (
     <group
       ref={groupRef}
-      position={[-4.55, -2.08, -0.45]}
+      position={[0, -2.08, -(ARTWORK_RADIUS - 3.35)]}
       scale={PLANT_BASE_SCALE}
     >
       <mesh
@@ -1203,7 +1197,7 @@ function InteractiveCat({ disabled }) {
   function handleClick(event) {
     event.stopPropagation()
 
-    if (disabled) {
+    if (disabled || event.delta > DRAG_THRESHOLD) {
       return
     }
 
@@ -1215,7 +1209,7 @@ function InteractiveCat({ disabled }) {
   return (
     <group
       ref={groupRef}
-      position={[4.45, -2.07, -0.65]}
+      position={[0, -2.07, -(ARTWORK_RADIUS - 3.15)]}
       rotation={[0, -0.18, 0]}
       scale={CAT_BASE_SCALE}
     >
@@ -1439,8 +1433,8 @@ function GalleryRoom({ decorInteractionDisabled }) {
         color="#fafdff"
       />
 
-      <mesh position={[0, -2.2, -0.1]}>
-        <boxGeometry args={[12, 0.2, 8.6]} />
+      <mesh position={[0, -2.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[WALL_RADIUS, 128]} />
 
         <meshStandardMaterial
           color="#9fb5c0"
@@ -1449,26 +1443,16 @@ function GalleryRoom({ decorInteractionDisabled }) {
         />
       </mesh>
 
-      <mesh position={[0, 1, -4.2]}>
-        <boxGeometry args={[12, 6.5, 0.2]} />
+      <mesh position={[0, 1, 0]}>
+        <cylinderGeometry
+          args={[WALL_RADIUS, WALL_RADIUS, 6.5, 160, 1, true]}
+        />
 
-        <meshBasicMaterial color="#d9e8ef" />
+        <meshBasicMaterial color="#d9e8ef" side={THREE.BackSide} />
       </mesh>
 
-      <mesh position={[-6, 1, -0.1]}>
-        <boxGeometry args={[0.2, 6.5, 8.4]} />
-
-        <meshBasicMaterial color="#d9e8ef" />
-      </mesh>
-
-      <mesh position={[6, 1, -0.1]}>
-        <boxGeometry args={[0.2, 6.5, 8.4]} />
-
-        <meshBasicMaterial color="#d9e8ef" />
-      </mesh>
-
-      <mesh position={[0, 4.25, -0.1]}>
-        <boxGeometry args={[12, 0.2, 8.6]} />
+      <mesh position={[0, 4.15, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[WALL_RADIUS, 128]} />
 
         <meshStandardMaterial
           color="#f6fbfd"
@@ -1476,17 +1460,27 @@ function GalleryRoom({ decorInteractionDisabled }) {
         />
       </mesh>
 
-      <mesh position={[0, -2.02, -4.02]}>
-        <boxGeometry args={[12, 0.22, 0.16]} />
+      <mesh position={[0, -2.01, 0]}>
+        <cylinderGeometry
+          args={[
+            WALL_RADIUS - 0.08,
+            WALL_RADIUS - 0.08,
+            0.22,
+            160,
+            1,
+            true,
+          ]}
+        />
 
         <meshStandardMaterial
           color="#78909c"
           roughness={0.7}
+          side={THREE.BackSide}
         />
       </mesh>
 
-      <mesh position={[0, 4.01, -1.58]}>
-        <boxGeometry args={[9.5, 0.08, 0.08]} />
+      <mesh position={[0, 4.01, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[SPOTLIGHT_RADIUS + 0.03, 0.04, 8, 192]} />
 
         <meshStandardMaterial
           color="#27333c"
@@ -1495,321 +1489,356 @@ function GalleryRoom({ decorInteractionDisabled }) {
         />
       </mesh>
 
-      <MuseumSpotlight x={-3.4} />
-      <MuseumSpotlight x={0} />
-      <MuseumSpotlight x={3.4} />
+      {paintings.map((painting, index) => (
+        <group
+          key={`fixture-${painting.id}`}
+          rotation={[0, -index * ARTWORK_STEP, 0]}
+        >
+          <SpotlightFixture />
+        </group>
+      ))}
 
-      <InteractivePlant disabled={decorInteractionDisabled} />
-      <InteractiveCat disabled={decorInteractionDisabled} />
+      <SpotlightPool />
+
+      <group rotation={[0, 1.5 * ARTWORK_STEP, 0]}>
+        <InteractivePlant disabled={decorInteractionDisabled} />
+      </group>
+
+      <group rotation={[0, -1.5 * ARTWORK_STEP, 0]}>
+        <InteractiveCat disabled={decorInteractionDisabled} />
+      </group>
     </>
   )
 }
 
 function GalleryScene({
-  controlsRef,
-  galleryPage,
-  pageTransition,
-  onPageTransitionComplete,
+  yawTargetRef,
+  focusIndex,
+  zoomed,
+  infoVisible,
+  entered,
   onSelect,
-  artworkSelectionDisabled,
 }) {
+  const focusedIndex = wrapIndex(focusIndex)
+
   return (
     <>
-      <GalleryRoom
-        decorInteractionDisabled={artworkSelectionDisabled}
-      />
+      <GalleryRoom decorInteractionDisabled={!entered || zoomed} />
 
-      {pageTransition ? (
-        <>
-          <ArtworkPage
-            key={`outgoing-${pageTransition.fromPage}`}
-            artworks={getArtworksForPage(pageTransition.fromPage)}
-            mode="exit"
-            direction={pageTransition.direction}
-            disabled
+      {paintings.map((artwork, index) => (
+        <group
+          key={artwork.id}
+          rotation={[0, -index * ARTWORK_STEP, 0]}
+        >
+          <Artwork
+            artwork={artwork}
+            position={[0, CAMERA_HEIGHT, -ARTWORK_RADIUS]}
             onSelect={onSelect}
+            disabled={
+              !entered || (zoomed && index === focusedIndex)
+            }
           />
+        </group>
+      ))}
 
-          <ArtworkPage
-            key={`incoming-${pageTransition.toPage}`}
-            artworks={getArtworksForPage(pageTransition.toPage)}
-            mode="enter"
-            direction={pageTransition.direction}
-            disabled
-            onSelect={onSelect}
-            onTransitionComplete={onPageTransitionComplete}
-          />
-        </>
-      ) : (
-        <ArtworkPage
-          key={`page-${galleryPage}`}
-          artworks={getArtworksForPage(galleryPage)}
-          mode="static"
-          direction={1}
-          disabled={artworkSelectionDisabled}
-          onSelect={onSelect}
-        />
-      )}
-
-      <CameraControls
-        ref={controlsRef}
-        smoothTime={0.45}
-        enabled={false}
+      <CameraRig
+        yawTargetRef={yawTargetRef}
+        focusIndex={focusIndex}
+        zoomed={zoomed}
+        infoVisible={infoVisible}
       />
     </>
   )
 }
 
 function App() {
-  const controlsRef = useRef(null)
+  // Where the camera should face, in radians. Kept in a ref so dragging and
+  // scrolling can steer the camera every frame without re-rendering.
+  const yawTargetRef = useRef(0)
+  const dragRef = useRef(null)
+  const wheelRef = useRef({
+    accumulated: 0,
+    locked: false,
+    idleTimer: null,
+    snapTimer: null,
+  })
+  const infoPanelRef = useRef(null)
 
   const [assetsReady, setAssetsReady] = useState(false)
-  const [stage, setStage] = useState('title')
-  const [galleryPage, setGalleryPage] = useState(0)
-  const [pageTransition, setPageTransition] = useState(null)
-  const [selectedArtwork, setSelectedArtwork] = useState(null)
-  const [cameraMoving, setCameraMoving] = useState(false)
-  const [returningHome, setReturningHome] = useState(false)
-  const [controlsVisible, setControlsVisible] = useState(false)
-  const [showInfo, setShowInfo] = useState(false)
+  const [entered, setEntered] = useState(false)
+  // Unbounded so turning past the last piece keeps rotating the same way;
+  // wrapIndex() maps it back onto the paintings array.
+  const [focusIndex, setFocusIndex] = useState(0)
+  const [zoomed, setZoomed] = useState(false)
+  const [infoVisible, setInfoVisible] = useState(true)
 
-  const galleryEntered = stage === 'gallery'
+  const focusedArtwork = paintings[wrapIndex(focusIndex)]
+  const browsing = entered && !zoomed
 
-  const pageCount = Math.ceil(
-    paintings.length / PAINTINGS_PER_PAGE,
-  )
-
-  const galleryTextVisible =
-    galleryEntered &&
-    (!selectedArtwork || returningHome)
-
-  const galleryArrowsVisible =
-    galleryEntered &&
-    !selectedArtwork &&
-    !cameraMoving &&
-    !returningHome
-
-  const galleryNavigationEnabled =
-    galleryArrowsVisible &&
-    !pageTransition
-
-  const titleScreenButtonVisible =
-    galleryEntered &&
-    !selectedArtwork &&
-    !cameraMoving &&
-    !returningHome &&
-    !pageTransition
-
-  const displayedPage =
-    pageTransition?.toPage ??
-    galleryPage
-
-  async function openArtwork(artwork) {
-    if (
-      !galleryEntered ||
-      cameraMoving ||
-      returningHome ||
-      selectedArtwork ||
-      pageTransition
-    ) {
-      return
-    }
-
-    setSelectedArtwork(artwork)
-    setShowInfo(false)
-    setControlsVisible(false)
-    setCameraMoving(true)
-
-    const [x, y, z] = artwork.position
-
-    await controlsRef.current?.setLookAt(
-      x,
-      y,
-      ARTWORK_VIEW_Z,
-      x,
-      y,
-      z,
-      true,
-    )
-
-    setCameraMoving(false)
-    setControlsVisible(true)
+  function focusOn(index) {
+    yawTargetRef.current = index * ARTWORK_STEP
+    setFocusIndex(index)
   }
 
-  async function closeArtwork() {
-    if (cameraMoving || returningHome) {
+  function nearestIndex() {
+    return Math.round(yawTargetRef.current / ARTWORK_STEP)
+  }
+
+  function step(direction) {
+    focusOn(nearestIndex() + direction)
+  }
+
+  function openArtwork(artwork) {
+    if (!entered) {
       return
     }
 
-    setControlsVisible(false)
-    setShowInfo(false)
-    setCameraMoving(true)
-    setReturningHome(true)
+    const currentIndex = nearestIndex()
 
+    // Turn the short way around the room to reach the chosen piece.
+    let offset =
+      wrapIndex(paintings.indexOf(artwork) - wrapIndex(currentIndex))
+
+    if (offset > ARTWORK_COUNT / 2) {
+      offset -= ARTWORK_COUNT
+    }
+
+    if (!zoomed) {
+      setInfoVisible(true)
+    }
+
+    focusOn(currentIndex + offset)
+    setZoomed(true)
+  }
+
+  function closeArtwork() {
     document.body.style.cursor = 'default'
-
-    await controlsRef.current?.setLookAt(
-      ...HOME_CAMERA.position,
-      ...HOME_CAMERA.target,
-      true,
-    )
-
-    setSelectedArtwork(null)
-    setCameraMoving(false)
-    setReturningHome(false)
+    setZoomed(false)
   }
 
   function returnToTitleScreen() {
-    if (!titleScreenButtonVisible) {
-      return
-    }
-
     document.body.style.cursor = 'default'
 
-    controlsRef.current?.setLookAt(
-      ...HOME_CAMERA.position,
-      ...HOME_CAMERA.target,
-      false,
+    focusOn(Math.round(focusIndex / ARTWORK_COUNT) * ARTWORK_COUNT)
+    setZoomed(false)
+    setEntered(false)
+  }
+
+  // Radians of turn per pixel dragged, so the wall tracks the pointer.
+  function dragRadiansPerPixel() {
+    const viewDistance = zoomed
+      ? ZOOMED_VIEW_DISTANCE
+      : HOME_VIEW_DISTANCE
+
+    return (
+      (2 * viewDistance * TAN_HALF_FOV) /
+      (window.innerHeight * ARTWORK_RADIUS)
     )
-
-    setShowInfo(false)
-    setControlsVisible(false)
-    setSelectedArtwork(null)
-    setCameraMoving(false)
-    setReturningHome(false)
-    setPageTransition(null)
-    setGalleryPage(0)
-    setStage('title')
   }
 
-  function startPageTransition(direction) {
-    if (!galleryNavigationEnabled) {
+  function handlePointerDown(event) {
+    if (!entered || (event.pointerType === 'mouse' && event.button !== 0)) {
       return
     }
 
-    const toPage =
-      (galleryPage + direction + pageCount) %
-      pageCount
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startYaw: yawTargetRef.current,
+      startIndex: nearestIndex(),
+      dragging: false,
+    }
+  }
 
-    if (toPage === galleryPage) {
+  function handleWheel(event) {
+    if (!entered) {
       return
     }
 
-    setPageTransition({
-      fromPage: galleryPage,
-      toPage,
-      direction,
-    })
-  }
+    const lineScale = event.deltaMode === 1 ? 33 : 1
 
-  function showPreviousPage() {
-    startPageTransition(-1)
-  }
+    const delta =
+      (Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? event.deltaX
+        : event.deltaY) * lineScale
 
-  function showNextPage() {
-    startPageTransition(1)
-  }
+    const wheel = wheelRef.current
 
-  function finishPageTransition() {
-    if (!pageTransition) {
-      return
-    }
+    if (zoomed) {
+      // One gesture moves one piece; momentum scrolling is ignored until the
+      // wheel has been still for a moment.
+      clearTimeout(wheel.idleTimer)
 
-    setGalleryPage(pageTransition.toPage)
-    setPageTransition(null)
-  }
+      wheel.idleTimer = setTimeout(() => {
+        wheel.accumulated = 0
+        wheel.locked = false
+      }, 250)
 
-  useEffect(() => {
-    function handleKeyDown(event) {
-      if (event.repeat || !galleryEntered) {
+      if (wheel.locked) {
         return
       }
 
+      wheel.accumulated += delta
+
+      if (Math.abs(wheel.accumulated) >= SWIPE_THRESHOLD) {
+        wheel.locked = true
+        step(Math.sign(wheel.accumulated))
+      }
+
+      return
+    }
+
+    yawTargetRef.current += (delta * ARTWORK_STEP) / 100
+
+    clearTimeout(wheel.snapTimer)
+    wheel.snapTimer = setTimeout(() => focusOn(nearestIndex()), 160)
+  }
+
+  useEffect(() => {
+    function handlePointerMove(event) {
+      const drag = dragRef.current
+
+      if (!drag || event.pointerId !== drag.pointerId) {
+        return
+      }
+
+      const deltaX = event.clientX - drag.startX
+
+      if (!drag.dragging && Math.abs(deltaX) > DRAG_THRESHOLD) {
+        drag.dragging = true
+      }
+
+      if (drag.dragging) {
+        yawTargetRef.current =
+          drag.startYaw - deltaX * dragRadiansPerPixel()
+      }
+    }
+
+    function handlePointerUp(event) {
+      const drag = dragRef.current
+
+      if (!drag || event.pointerId !== drag.pointerId) {
+        return
+      }
+
+      dragRef.current = null
+
+      if (!drag.dragging) {
+        return
+      }
+
+      const deltaX = event.clientX - drag.startX
+      let index = nearestIndex()
+
+      // While zoomed in, a short swipe is still enough to move one piece.
       if (
-        event.key === 'Escape' &&
-        selectedArtwork &&
-        controlsVisible &&
-        !cameraMoving &&
-        !returningHome
+        zoomed &&
+        index === drag.startIndex &&
+        Math.abs(deltaX) > SWIPE_THRESHOLD
       ) {
+        index = drag.startIndex - Math.sign(deltaX)
+      }
+
+      focusOn(index)
+    }
+
+    function handleKeyDown(event) {
+      if (event.repeat || !entered) {
+        return
+      }
+
+      if (event.key === 'Escape' && zoomed) {
         event.preventDefault()
         closeArtwork()
         return
       }
 
-      if (
-        selectedArtwork ||
-        cameraMoving ||
-        returningHome ||
-        pageTransition
-      ) {
-        return
-      }
-
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
-        showPreviousPage()
+        step(-1)
+        return
       }
 
       if (event.key === 'ArrowRight') {
         event.preventDefault()
-        showNextPage()
+        step(1)
+        return
+      }
+
+      if (
+        event.key === 'Enter' &&
+        !zoomed &&
+        document.activeElement === document.body
+      ) {
+        event.preventDefault()
+        openArtwork(focusedArtwork)
       }
     }
 
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
     window.addEventListener('keydown', handleKeyDown)
 
     return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
       window.removeEventListener('keydown', handleKeyDown)
     }
   })
+
+  useEffect(() => {
+    if (infoPanelRef.current) {
+      infoPanelRef.current.scrollTop = 0
+    }
+  }, [focusIndex])
 
   return (
     <main className="app">
       <LoadingScreen
         assetsReady={assetsReady}
-        entered={stage !== 'title'}
-        onEnter={() => setStage('intro')}
+        entered={entered}
+        onEnter={() => setEntered(true)}
       />
 
-      <IntroScreen
-        visible={stage === 'intro'}
-        onContinue={() => setStage('gallery')}
-      />
-
-      <Canvas
-        dpr={[1, 2]}
-        camera={{
-          position: HOME_CAMERA.position,
-          fov: CAMERA_FOV,
-        }}
-        gl={{
-          antialias: true,
-          powerPreference: 'high-performance',
-        }}
+      <div
+        className="gallery-canvas"
+        onPointerDown={handlePointerDown}
+        onWheel={handleWheel}
       >
-        <Suspense fallback={null}>
-          <TexturePreloader onReady={setAssetsReady} />
+        <Canvas
+          dpr={[1, 2]}
+          camera={{
+            position: [
+              0,
+              CAMERA_HEIGHT,
+              -(ARTWORK_RADIUS - HOME_VIEW_DISTANCE),
+            ],
+            fov: CAMERA_FOV,
+          }}
+          gl={{
+            antialias: true,
+            powerPreference: 'high-performance',
+          }}
+        >
+          <Suspense fallback={null}>
+            <TexturePreloader onReady={setAssetsReady} />
 
-          <GalleryScene
-            controlsRef={controlsRef}
-            galleryPage={galleryPage}
-            pageTransition={pageTransition}
-            onPageTransitionComplete={finishPageTransition}
-            onSelect={openArtwork}
-            artworkSelectionDisabled={
-              !galleryEntered ||
-              cameraMoving ||
-              returningHome ||
-              Boolean(selectedArtwork) ||
-              Boolean(pageTransition)
-            }
-          />
-        </Suspense>
-      </Canvas>
+            <GalleryScene
+              yawTargetRef={yawTargetRef}
+              focusIndex={focusIndex}
+              zoomed={zoomed}
+              infoVisible={infoVisible}
+              entered={entered}
+              onSelect={openArtwork}
+            />
+          </Suspense>
+        </Canvas>
+      </div>
 
       <AnimatePresence>
-        {titleScreenButtonVisible && (
+        {browsing && (
           <motion.button
             type="button"
             className="title-screen-button"
@@ -1840,7 +1869,7 @@ function App() {
 
       <header
         className={`gallery-title ${
-          galleryTextVisible
+          browsing
             ? 'gallery-title-visible'
             : ''
         }`}
@@ -1857,18 +1886,13 @@ function App() {
       <button
         type="button"
         className={`page-arrow page-arrow-left ${
-          galleryArrowsVisible
+          browsing
             ? 'page-arrow-visible'
             : ''
-        } ${
-          pageTransition
-            ? 'page-arrow-disabled'
-            : ''
         }`}
-        onClick={showPreviousPage}
-        aria-label="Previous group of artworks"
-        disabled={!galleryNavigationEnabled}
-        tabIndex={galleryNavigationEnabled ? 0 : -1}
+        onClick={() => step(-1)}
+        aria-label="Turn left"
+        tabIndex={browsing ? 0 : -1}
       >
         ‹
       </button>
@@ -1876,35 +1900,35 @@ function App() {
       <button
         type="button"
         className={`page-arrow page-arrow-right ${
-          galleryArrowsVisible
+          browsing
             ? 'page-arrow-visible'
             : ''
-        } ${
-          pageTransition
-            ? 'page-arrow-disabled'
-            : ''
         }`}
-        onClick={showNextPage}
-        aria-label="Next group of artworks"
-        disabled={!galleryNavigationEnabled}
-        tabIndex={galleryNavigationEnabled ? 0 : -1}
+        onClick={() => step(1)}
+        aria-label="Turn right"
+        tabIndex={browsing ? 0 : -1}
       >
         ›
       </button>
 
       <div
         className={`page-indicator ${
-          galleryArrowsVisible
+          browsing
             ? 'page-indicator-visible'
             : ''
         }`}
       >
-        {displayedPage + 1} / {pageCount}
+        <span className="page-indicator-count">
+          {wrapIndex(focusIndex) + 1} / {ARTWORK_COUNT}
+        </span>
+        <span className="page-indicator-hint">
+          Drag to look around · Tap a piece to view it
+        </span>
       </div>
 
       <footer
         className={`gallery-footer ${
-          galleryTextVisible
+          browsing
             ? 'gallery-footer-visible'
             : ''
         }`}
@@ -1912,104 +1936,145 @@ function App() {
         Built by Amogh Kapoor — 2026
       </footer>
 
-      {selectedArtwork && (
-        <div
-          className={`viewer-ui ${
-            controlsVisible
-              ? 'viewer-ui-visible'
-              : ''
-          }`}
-        >
-          <button
-            type="button"
-            className="close-button"
-            onClick={closeArtwork}
-            aria-label="Return to gallery"
-          >
-            ×
-          </button>
-
-          <button
-            type="button"
-            className="learn-more-button"
-            aria-expanded={showInfo}
-            aria-controls="artwork-information"
-            onClick={() => {
-              setShowInfo((currentValue) => !currentValue)
+      <AnimatePresence>
+        {zoomed && (
+          <motion.div
+            className={`viewer-ui ${
+              infoVisible ? '' : 'viewer-ui-info-hidden'
+            }`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 0.3,
+              ease: [0.22, 1, 0.36, 1],
             }}
           >
-            {showInfo
-              ? 'Hide Information'
-              : 'Learn More'}
-          </button>
+            <button
+              type="button"
+              className="back-button"
+              onClick={closeArtwork}
+            >
+              <span aria-hidden="true">←</span>
+              Back to Gallery
+            </button>
 
-          <AnimatePresence>
-            {showInfo && (
-              <motion.aside
-                id="artwork-information"
-                className="artwork-info"
-                aria-labelledby="artwork-info-title"
-                initial={{
-                  opacity: 0,
-                  x: 45,
-                  scale: 0.97,
-                }}
-                animate={{
-                  opacity: 1,
-                  x: 0,
-                  scale: 1,
-                }}
-                exit={{
-                  opacity: 0,
-                  x: 45,
-                  scale: 0.97,
-                }}
-                transition={{
-                  duration: 0.32,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-              >
-                <button
-                  type="button"
-                  className="info-close-button"
-                  onClick={() => setShowInfo(false)}
-                  aria-label="Close artwork information"
+            <button
+              type="button"
+              className="viewer-arrow viewer-arrow-left"
+              onClick={() => step(-1)}
+              aria-label="Previous artwork"
+            >
+              ‹
+            </button>
+
+            <button
+              type="button"
+              className="viewer-arrow viewer-arrow-right"
+              onClick={() => step(1)}
+              aria-label="Next artwork"
+            >
+              ›
+            </button>
+
+            <AnimatePresence initial={false}>
+              {infoVisible ? (
+                <motion.aside
+                  key="artwork-info"
+                  ref={infoPanelRef}
+                  id="artwork-information"
+                  className="artwork-info"
+                  aria-labelledby="artwork-info-title"
+                  aria-live="polite"
+                  initial={{
+                    opacity: 0,
+                    x: 45,
+                    scale: 0.97,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    x: 0,
+                    scale: 1,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    x: 45,
+                    scale: 0.97,
+                  }}
+                  transition={{
+                    duration: 0.32,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
                 >
-                  ×
-                </button>
+                  <button
+                    type="button"
+                    className="info-close-button"
+                    onClick={() => setInfoVisible(false)}
+                    aria-label="Hide artwork information"
+                  >
+                    ×
+                  </button>
 
-                <p className="info-eyebrow">Artwork Details</p>
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={focusedArtwork.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.18 }}
+                    >
+                      <p className="info-eyebrow">
+                        Artwork {wrapIndex(focusIndex) + 1} of{' '}
+                        {ARTWORK_COUNT}
+                      </p>
 
-                <h2 id="artwork-info-title">
-                  {selectedArtwork.title}
-                </h2>
+                      <h2 id="artwork-info-title">
+                        {focusedArtwork.title}
+                      </h2>
 
-                <p className="artist">
-                  By {selectedArtwork.artist}
-                </p>
+                      <p className="artist">
+                        By {focusedArtwork.artist}
+                      </p>
 
-                <div className="info-divider" />
+                      <div className="info-divider" />
 
-                <p className="info-description">
-                  {selectedArtwork.description}
-                </p>
+                      <p className="info-description">
+                        {focusedArtwork.description}
+                      </p>
 
-                {selectedArtwork.amrExplanation && (
-                  <div className="amr-note">
-                    <p className="amr-note-label">
-                      Connection to AMR
-                    </p>
+                      {focusedArtwork.amrExplanation && (
+                        <div className="amr-note">
+                          <p className="amr-note-label">
+                            Connection to AMR
+                          </p>
 
-                    <p>
-                      {selectedArtwork.amrExplanation}
-                    </p>
-                  </div>
-                )}
-              </motion.aside>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
+                          <p>
+                            {focusedArtwork.amrExplanation}
+                          </p>
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </motion.aside>
+              ) : (
+                <motion.button
+                  key="show-info"
+                  type="button"
+                  className="show-info-button"
+                  onClick={() => setInfoVisible(true)}
+                  aria-controls="artwork-information"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  About This Artwork
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   )
 }
