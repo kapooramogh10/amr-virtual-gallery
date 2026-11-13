@@ -83,8 +83,7 @@ const paintings = [
   },
   {
     id: 17,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Kyjuan Washington',
     description:
       'We currently have antibiotics in development which are extremely strong and experimental like "vancomycin 3". This made me think. What if the bacteria found a way to adapt to that new medication faster than we could fight it off? So in my piece you see the progression to stronger medication until it eventually falls off into darkness swallowed by the ever evolving darkness. The table the antibiotics are sitting on is to mirror bacteria on a petri dish going from gram positive to gram negative.',
@@ -92,8 +91,7 @@ const paintings = [
   },
   {
     id: 18,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Sicily Esparza',
     description:
       'My work is meant to highlight how the overuse of antibiotics can increase infections and the ability of the body to fight them.',
@@ -119,8 +117,7 @@ const paintings = [
   },
   {
     id: 21,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Cindy Ma',
     description:
       'My illustration shows how microbes become increasingly resistant to medicine over time. I thought of antimicrobial resistance like a game where one side levels down and the other levels up. In my piece, the medicine side is leveling down, while the microbes are leveling up. There is also a shield in front of the microbes’ side, showing how they block the medicine from reaching them. Overall, the artwork represents how microbes are becoming more resistant to medicine as time goes on.',
@@ -128,8 +125,7 @@ const paintings = [
   },
   {
     id: 22,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Joav Silva Bastida',
     description:
       'For my piece, I decided to go on the route of using a scare tactic to grasp the attention of anyone passing by. The illustration is in black and white, using line-work in the background to represent the micro-organism infiltrating the bodies and included text "Medicine won\'t save you for long" as an informative.',
@@ -137,8 +133,7 @@ const paintings = [
   },
   {
     id: 23,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Valerie Cheng',
     description:
       'Through research and careful brainstorming I have decided I wanted to create public awareness of Antimicrobial Resistance through the form of storytelling. I chose to create a comic, presenting an everyday conversation between a father and his daughter regarding the subject. This way I can raise awareness of the subject, through an easy-going and digestible comic.',
@@ -146,8 +141,7 @@ const paintings = [
   },
   {
     id: 24,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Valerie Cheng',
     description:
       'Through research and careful brainstorming I have decided I wanted to create public awareness of Antimicrobial Resistance through the form of storytelling. I chose to create a comic, presenting an everyday conversation between a father and his daughter regarding the subject. This way I can raise awareness of the subject, through an easy-going and digestible comic.',
@@ -163,8 +157,7 @@ const paintings = [
   },
   {
     id: 26,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Jesus Hernandez',
     description:
       'My approach on creating the art is to do it via comic form. The reason I choose the medium of comics instead of any other medium is because I believe it is a great way to break down information and deliver it in a concise, fun, and engaging story. The art I have provided is a proof of concept of what I want the comic to be. Subject to further reworking and revision into the final product. I hope you find what I have to offer great for bringing awareness to the public.',
@@ -180,8 +173,7 @@ const paintings = [
   },
   {
     id: 28,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Claudette Harris',
     description:
       'In my piece I wanted to show the microbe physically fighting against the medicine, humanize it in a way people are able to understand. What better way than to have it be a boxer.',
@@ -198,8 +190,7 @@ const paintings = [
   },
   {
     id: 30,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Isa Williams',
     description:
       'In my art piece, I listed simple ways that could help people combat these antimicrobial resistances, for example, continuously practicing good hygiene in your everyday life!',
@@ -222,8 +213,7 @@ const paintings = [
   },
   {
     id: 33,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Percy Heggen',
     description:
       "I choose to do something simple, eye-catching and bright; abstract with a retro feeling. Its purpose is to bring the viewer's attention to the poster and then keep them curious enough to learn something about AMR. I wanted to make my poster friendly, easy to read, and purposefully keep the message simple and not too wordy. I am a digital illustrator with some background in experimental animation and graphic design and I was inspired by the work of Len Lye, who was often known to combine art with science. I used a program called Procreate to digitally render this piece and to add in the typed information.",
@@ -231,8 +221,7 @@ const paintings = [
   },
   {
     id: 34,
-    // TODO: artist has not finalized a title for this piece yet
-    title: 'Title TBD',
+    title: null,
     artist: 'Rayne "Dirt" Simmons',
     description:
       'The sketch is of two different pills representing antibiotics, and they are hanging up a poster on how to prevent AMR. The illustration is cartoonish as to make the subject approachable for all ages, and to not overwhelm people with information.',

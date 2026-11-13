@@ -200,7 +200,7 @@ function LoadingScreen({ assetsReady, entered, onEnter }) {
                   together artists from Columbia College of Art in
                   Chicago who translate this invisible crisis into
                   something we can see, feel, and sit with. These
-                  artists collaborated with clinicians from
+                  artists collaborated with infectious diseases pharmacists from
                   Midwestern University School of Pharmacy as well as
                   Northwestern Medicine to depict this important
                   public health concern. Our goal isn't just
@@ -1984,7 +1984,9 @@ function App() {
                   ref={infoPanelRef}
                   id="artwork-information"
                   className="artwork-info"
-                  aria-labelledby="artwork-info-title"
+                  aria-label={`Artwork information: ${
+                    focusedArtwork.title || `by ${focusedArtwork.artist}`
+                  }`}
                   aria-live="polite"
                   initial={{
                     opacity: 0,
@@ -2028,9 +2030,9 @@ function App() {
                         {ARTWORK_COUNT}
                       </p>
 
-                      <h2 id="artwork-info-title">
-                        {focusedArtwork.title}
-                      </h2>
+                      {focusedArtwork.title && (
+                        <h2>{focusedArtwork.title}</h2>
+                      )}
 
                       <p className="artist">
                         By {focusedArtwork.artist}
